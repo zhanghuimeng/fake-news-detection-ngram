@@ -67,6 +67,18 @@ def shuffle_split(data, p=0.2):
 
 
 # output
+with open(os.path.join(args.output, "gossipcop_all.csv"), "w") as f:
+    f_csv = csv.DictWriter(f, headers)
+    f_csv.writeheader()
+    f_csv.writerows(g_rows)
+    print("Printed %d gossipcop news" % len(g_rows))
+with open(os.path.join(args.output, "politifact_all.csv"), "w") as f:
+    f_csv = csv.DictWriter(f, headers)
+    f_csv.writeheader()
+    f_csv.writerows(p_rows)
+    print("Printed %d politifact news" % len(p_rows))
+exit()
+
 g_train, g_test = shuffle_split(g_rows)
 with open(os.path.join(args.output, "gossipcop_train.csv"), "w") as f:
     f_csv = csv.DictWriter(f, headers)
