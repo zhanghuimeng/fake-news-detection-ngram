@@ -76,7 +76,11 @@ for i in range(len(rows)):
         print(rows[i])
         print(sentences)
 
+    if i % 1000 == 0:
+        print("%d / %d" % (i, len(rows)))
+
     rows[i]["text"] = sentences
 
+print("Ready to dump")
 with open(args.output, "w") as f:
     json.dump(rows, f)
