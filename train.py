@@ -5,6 +5,7 @@ from scipy.stats import pearsonr
 from sklearn import svm
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, f1_score
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 import numpy as np
@@ -134,4 +135,11 @@ elif args.classifier == "LR":
 else:
     raise ValueError("Unknown classification method")
 
-print("ACC: %f" % (y_test == y_test_pred).mean())
+acc = (y_test == y_test_pred).mean()
+f1 = f1_score(y_test, y_test_pred)
+print("Dataset: %s" % args.train)
+print("Features: %d" % args.n_features)
+print("Classifier: %s" % args.classifier)
+print("ACC: %f" % acc)
+print("F1: %f" % f1)
+print()

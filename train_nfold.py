@@ -5,6 +5,7 @@ from scipy.stats import pearsonr
 from sklearn import svm
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, f1_score, auc, roc_curve
 from sklearn.model_selection import KFold
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
@@ -102,28 +103,36 @@ def run(train_dataset, test_dataset, ngram, n_features, classifier):
         clf = svm.SVC()
         clf.fit(X_train_filtered, y_train)
         y_test_pred = clf.predict(X_test_filtered)
+        y_test_score = clf.decision_function(X_test_filtered)
     elif classifier == "KNN":
         neigh = KNeighborsClassifier(n_neighbors=5)
         neigh.fit(X_train_filtered, y_train)
         y_test_pred = neigh.predict(X_test_filtered)
+        y_test_score = neigh.predict_proba(X_test_filtered)[:, 1]
     elif classifier == "DT":
         clf = DecisionTreeClassifier(random_state=0)
         clf = clf.fit(X_train_filtered, y_train)
         y_test_pred = clf.predict(X_test_filtered)
+        y_test_score = clf.predict_proba(X_test_filtered)[:, 1]
     elif classifier == "LR":
         clf = LogisticRegression(random_state=0).fit(X_train_filtered, y_train)
         y_test_pred = clf.predict(X_test_filtered)
+        y_test_score = clf.predict_proba(X_test_filtered)[:, 1]
     else:
         raise ValueError("Unknown classification method")
 
     acc = (y_test == y_test_pred).mean()
-    # print("ACC: %f" % acc)
-    return acc
+    f1 = f1_score(y_test, y_test_pred)
+    test_fpr, test_tpr, _ = roc_curve(y_test, y_test_score)
+    auc_score = auc(test_fpr, test_tpr)
+    return acc, f1, auc_score
 
 
 parser = argparse.ArgumentParser(description='Extract features and train with n-fold')
-parser.add_argument("--input", type=str, default="data/processed/politifact_all.cleaned.json",
+parser.add_argument("--train", type=str, default="data/processed/politifact_all.cleaned.json",
                     help="training dataset")
+parser.add_argument("--test", type=str, default=None,
+                    help="test dataset")
 parser.add_argument("--ngram", type=int, default=1,
                     help="N-gram number")
 parser.add_argument("--nfold", type=int, default=5,
@@ -135,23 +144,47 @@ parser.add_argument("--classifier", type=str, default="SVM",
 
 args = parser.parse_args()
 
-with open(args.input, "r") as f:
-    dataset = json.load(f)
-
-kf = KFold(n_splits=args.nfold, shuffle=True, random_state=0)
-acc_list = []
-print("Dataset: %s" % args.input)
+print("Dataset: %s" % args.train)
 print("Features: %d" % args.n_features)
 print("Classifier: %s" % args.classifier)
-for train_index, test_index in kf.split(dataset):
-    train_dataset = [dataset[x] for x in train_index]
-    test_dataset = [dataset[x] for x in test_index]
-    acc = run(train_dataset=train_dataset,
-              test_dataset=test_dataset,
-              ngram=args.ngram,
-              n_features=args.n_features,
-              classifier=args.classifier)
-    print("ACC: %f" % acc)
-    acc_list.append(acc)
 
-print("Average ACC: %f" % np.average(acc_list))
+if not args.test:
+    with open(args.train, "r") as f:
+        dataset = json.load(f)
+
+    kf = KFold(n_splits=args.nfold, shuffle=True, random_state=0)
+    acc_list = []
+    f1_list = []
+    auc_list = []
+
+    for train_index, test_index in kf.split(dataset):
+        train_dataset = [dataset[x] for x in train_index]
+        test_dataset = [dataset[x] for x in test_index]
+        acc, f1, auc_score = run(
+            train_dataset=train_dataset,
+            test_dataset=test_dataset,
+            ngram=args.ngram,
+            n_features=args.n_features,
+            classifier=args.classifier)
+        print("ACC=%f, F1=%f, AUC=%f" % (acc, f1, auc_score))
+        acc_list.append(acc)
+        f1_list.append(f1)
+        auc_list.append(auc_score)
+
+    print("Average ACC=%f" % np.average(acc_list))
+    print("Average F1=%f" % np.average(f1_list))
+    print("Average AUC=%f" % np.average(auc_list))
+else:
+    with open(args.train, "r") as f:
+        train_dataset = json.load(f)
+    with open(args.test, "r") as f:
+        test_dataset = json.load(f)
+    acc, f1, auc_score = run(
+        train_dataset=train_dataset,
+        test_dataset=test_dataset,
+        ngram=args.ngram,
+        n_features=args.n_features,
+        classifier=args.classifier)
+    print("ACC=%f, F1=%f, AUC=%f" % (acc, f1, auc_score))
+
+print()
